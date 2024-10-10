@@ -247,7 +247,7 @@ export type FileProperties = {
   lastModifiedByName: string;
   lastModifiedDate: string;
   manageableState?: ManageableState;
-  namespacePrefix?: string;
+  namespacePrefix?: string | null | undefined;
   type: string;
 };
 

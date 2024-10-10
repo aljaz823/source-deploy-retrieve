@@ -10,11 +10,11 @@ import { ensurePlainObject, ensureString, isPlainObject } from '@salesforce/ts-t
 import { RegistryAccess } from '../registry/registryAccess';
 import { MetadataType } from '../registry/types';
 import { standardValueSet } from '../registry/standardvalueset';
+import { typesWithoutNamespace } from '../registry/typeswithoutnamespace';
 import { FileProperties, StdValueSetRecord, ListMetadataQuery } from '../client/types';
 import { extName } from '../utils/path';
 import { MetadataComponent } from './types';
-
-type RelevantFileProperties = Pick<FileProperties, 'fullName' | 'fileName' | 'type'>;
+type RelevantFileProperties = Pick<FileProperties, 'fullName' | 'fileName' | 'type' | 'namespacePrefix'>;
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@salesforce/source-deploy-retrieve', 'sdr');
@@ -168,7 +168,7 @@ const listMembers =
     }
 
     try {
-      return (await connection.metadata.list(query)).map(inferFilenamesFromType(mdType));
+      return (await connection.metadata.list(query)).map(tidyMetadata(mdType));
     } catch (error) {
       const logger = Logger.childFromRoot('ConnectionResolver.listMembers');
       logger.debug((error as Error).message);
@@ -176,12 +176,46 @@ const listMembers =
     }
   };
 
-/* if the Metadata Type doesn't return a correct fileName then help it out */
-const inferFilenamesFromType =
+const tidyMetadata =
   (metadataType: MetadataType) =>
   (member: RelevantFileProperties): RelevantFileProperties =>
-    typeof member.fileName === 'object' && metadataType.suffix
-      ? { ...member, fileName: `${metadataType.directoryName}/${member.fullName}.${metadataType.suffix}` }
-      : member;
+    fixCustomMetadataNames(metadataType, inferFilenamesFromType(metadataType, member));
+
+// Workaround because Metadata API omits namespace prefix from the fullName for specific types
+/* prefix the namespacePrefix to the fullName */
+const fixCustomMetadataNames = (metadataType: MetadataType, member: RelevantFileProperties): RelevantFileProperties => {
+  try {
+    if (
+      Object.keys(typesWithoutNamespace.types).includes(metadataType?.name?.toLowerCase()) &&
+      member?.namespacePrefix
+    ) {
+      const delimiter = typesWithoutNamespace.types[metadataType.name.toLowerCase()].delimiter;
+      const index = member.fullName.indexOf(delimiter);
+      const fullNameSplitted = [
+        member.fullName.substring(0, index),
+        member.fullName.substring(index + delimiter.length),
+      ];
+      const type = fullNameSplitted[0];
+      const memberName = fullNameSplitted[1];
+      const prefixedNamespace = `${member.namespacePrefix}__`;
+
+      return {
+        ...member,
+        fullName: `${type ? `${type}${delimiter}` : ''}${
+          memberName.startsWith(prefixedNamespace) ? '' : `${member.namespacePrefix}__`
+        }${memberName}`,
+      };
+    }
+  } catch (error) {
+    // ignore
+  }
+  return member;
+};
+
+/* if the Metadata Type doesn't return a correct fileName then help it out */
+const inferFilenamesFromType = (metadataType: MetadataType, member: RelevantFileProperties): RelevantFileProperties =>
+  typeof member.fileName === 'object' && metadataType.suffix
+    ? { ...member, fileName: `${metadataType.directoryName}/${member.fullName}.${metadataType.suffix}` }
+    : member;
 
 const isNonEmptyString = (value: string | undefined): boolean => typeof value === 'string' && value.length > 0;

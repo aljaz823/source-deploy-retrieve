@@ -20,6 +20,15 @@ export type MetadataRegistry = {
   };
 };
 
+export type TypesWithoutNamespace = {
+  types: TypeWithoutNamespaceIndex;
+};
+
+export type TypeWithoutNamespace = {
+  delimiter: string;
+  prefixType?: boolean;
+};
+
 /**
  * Metadata type definition in the registry.
  */
@@ -157,6 +166,10 @@ export type MetadataType = {
  */
 type TypeIndex = {
   [typeId: string]: MetadataType;
+};
+
+type TypeWithoutNamespaceIndex = {
+  [typeId: string]: TypeWithoutNamespace;
 };
 
 /**

@@ -1,0 +1,17 @@
+{
+  "types": {
+    "custommetadata": {
+      "delimiter": "."
+    },
+    "layout": {
+      "delimiter": "-"
+    },
+    "quickaction": {
+      "delimiter": "."
+    },
+    "unused-globalvaluesettranslation": {
+      "delimiter": "-",
+      "prefixType": true
+    }
+  }
+}
